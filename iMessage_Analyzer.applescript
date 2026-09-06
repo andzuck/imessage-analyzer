@@ -4,15 +4,11 @@
 --   2. iMessage_halfyear_leaderboard.csv Ñ the top N independently ranked within every half-year
 --
 -- Counts only one-to-one conversations (not group threads), and includes sent + received iMessages.
-
 use scripting additions
-
 property appleEpochOffset : 9.783072E+8
-
 set currentYear to (do shell script "/bin/date +%Y") as integer
 set startAnswer to text returned of (display dialog "First year to include:" default answer "2015" buttons {"Cancel", "Continue"} default button "Continue")
 set endAnswer to text returned of (display dialog "Last year to include:" default answer (currentYear as text) buttons {"Cancel", "Continue"} default button "Continue")
-
 try
 	set startYear to startAnswer as integer
 	set endYear to endAnswer as integer
@@ -20,12 +16,10 @@ on error
 	display alert "Please enter whole years, such as 2018 and 2026."
 	return
 end try
-
 if startYear > endYear then
 	display alert "The first year must be no later than the last year."
 	return
 end if
-
 set topNAnswer to text returned of (display dialog "How many contacts should each chart include?" default answer "10" buttons {"Cancel", "Continue"} default button "Continue")
 try
 	set topN to topNAnswer as integer
@@ -33,12 +27,10 @@ on error
 	display alert "Please enter a whole number, such as 5 or 10."
 	return
 end try
-
 if topN < 1 then
 	display alert "The number of contacts must be at least 1."
 	return
 end if
-
 set exportFolder to choose folder with prompt "Choose a folder for the CSV exports:"
 set dbPath to POSIX path of ((path to library folder from user domain as text) & "Messages:chat.db")
 set linesPath to POSIX path of exportFolder & "iMessage_topn_halfyear_lines.csv"
@@ -48,7 +40,6 @@ set stackedDataPath to POSIX path of exportFolder & "iMessage_topn_halfyear_sent
 set allTimeMessagesPath to POSIX path of exportFolder & "iMessage_topn_alltime_messages.json"
 set allTimeDaysPath to POSIX path of exportFolder & "iMessage_topn_alltime_days.json"
 set dashboardPath to POSIX path of exportFolder & "iMessage_contact_analysis.html"
-
 -- Finder paths with apostrophes are legal, so quote those safely for SQLite.
 set dbSQLPath to my sqlQuote(dbPath)
 set linesSQLPath to my sqlQuote(linesPath)
@@ -57,7 +48,6 @@ set chartDataSQLPath to my sqlQuote(chartDataPath)
 set stackedDataSQLPath to my sqlQuote(stackedDataPath)
 set allTimeMessagesSQLPath to my sqlQuote(allTimeMessagesPath)
 set allTimeDaysSQLPath to my sqlQuote(allTimeDaysPath)
-
 set dateExpression to "datetime((CASE WHEN m.date > 100000000000 THEN m.date / 1000000000 ELSE m.date END) + " & appleEpochOffset & ", 'unixepoch', 'localtime')"
 try
 	set contactMapJSON to my contactNameMapJSON()
@@ -65,7 +55,6 @@ on error
 	-- The chart remains usable with phone/email handles if Contacts access is declined.
 	set contactMapJSON to "{}"
 end try
-
 -- Each half-year gets its own top-N list. Chart lines deliberately break when a
 -- contact is not in that period's list, avoiding a misleading continuous trend.
 set commonCTE to "WITH RECURSIVE" & linefeed & Â
@@ -87,7 +76,6 @@ set commonCTE to "WITH RECURSIVE" & linefeed & Â
 	"		  AND (m.associated_message_type IS NULL OR m.associated_message_type = 0)" & linefeed & Â
 	"		GROUP BY year, half, h.id" & linefeed & Â
 	"	)," & linefeed
-
 set oldLinesQuery to commonCTE & Â
 	"	halves(year, half) AS (" & linefeed & Â
 	"		SELECT " & startYear & ", 1" & linefeed & Â
@@ -105,7 +93,6 @@ set oldLinesQuery to commonCTE & Â
 	"FROM halves q CROSS JOIN top_contacts t" & linefeed & Â
 	"LEFT JOIN halfyearly x ON x.year = q.year AND x.half = q.half AND x.contact = t.contact" & linefeed & Â
 	"ORDER BY q.year, q.half, t.period_total DESC, t.contact;"
-
 set linesQuery to commonCTE & Â
 	"	ranked AS (" & linefeed & Â
 	"		SELECT year, half, contact, message_count," & linefeed & Â
@@ -114,7 +101,6 @@ set linesQuery to commonCTE & Â
 	"	)" & linefeed & Â
 	"SELECT year, half, printf('%d-H%d', year, half) AS season, contact, message_count, rank" & linefeed & Â
 	" FROM ranked WHERE rank <= " & topN & " ORDER BY year, half, rank;"
-
 -- This companion view is useful for answering the literal "who was #1 that season?"
 -- question; contacts may change from one half-year to the next.
 set leadersQuery to commonCTE & Â
@@ -125,7 +111,6 @@ set leadersQuery to commonCTE & Â
 	"	)" & linefeed & Â
 	"SELECT year, half, printf('%d-H%d', year, half) AS season, rank, contact, message_count" & linefeed & Â
 	" FROM ranked WHERE rank <= " & topN & " ORDER BY year, half, rank;"
-
 set stackedQuery to commonCTE & Â
 	"	halves(year, half) AS (" & linefeed & Â
 	"		SELECT " & startYear & ", 1" & linefeed & Â
@@ -144,7 +129,6 @@ set stackedQuery to commonCTE & Â
 	"FROM halves q CROSS JOIN top_contacts t" & linefeed & Â
 	"LEFT JOIN halfyearly x ON x.year = q.year AND x.half = q.half AND x.contact = t.contact" & linefeed & Â
 	"ORDER BY q.year, q.half, t.period_total DESC, t.contact;"
-
 set allTimeMessagesQuery to commonCTE & Â
 	"	totals AS (" & linefeed & Â
 	"		SELECT contact, SUM(message_count) AS message_count FROM halfyearly" & linefeed & Â
@@ -152,7 +136,6 @@ set allTimeMessagesQuery to commonCTE & Â
 	"		GROUP BY contact" & linefeed & Â
 	"	)" & linefeed & Â
 	"SELECT contact, message_count FROM totals ORDER BY message_count DESC, contact LIMIT " & topN & ";"
-
 set allTimeDaysQuery to "WITH one_to_one_chats AS (" & linefeed & Â
 	"  SELECT chat_id, MIN(handle_id) AS handle_id FROM chat_handle_join" & linefeed & Â
 	"  GROUP BY chat_id HAVING COUNT(DISTINCT handle_id) = 1" & linefeed & Â
@@ -164,10 +147,8 @@ set allTimeDaysQuery to "WITH one_to_one_chats AS (" & linefeed & Â
 	"   AND CAST(strftime('%Y', " & dateExpression & ") AS INTEGER) BETWEEN " & startYear & " AND " & endYear & linefeed & Â
 	"   AND (m.associated_message_type IS NULL OR m.associated_message_type = 0)" & linefeed & Â
 	" GROUP BY h.id ORDER BY day_count DESC, h.id LIMIT " & topN & ";"
-
 set sqlFile to POSIX path of ((path to temporary items from user domain as text) & "imessage-halfyear-export.sql")
 set sqlText to ".headers on" & linefeed & ".mode csv" & linefeed & ".output " & linesSQLPath & linefeed & linesQuery & linefeed & ".output " & leadersSQLPath & linefeed & leadersQuery & linefeed & ".mode json" & linefeed & ".output " & chartDataSQLPath & linefeed & linesQuery & linefeed & ".output " & stackedDataSQLPath & linefeed & stackedQuery & linefeed & ".output " & allTimeMessagesSQLPath & linefeed & allTimeMessagesQuery & linefeed & ".output " & allTimeDaysSQLPath & linefeed & allTimeDaysQuery & linefeed & ".quit" & linefeed
-
 try
 	my writeText(sqlText, sqlFile)
 	do shell script "/usr/bin/sqlite3 -readonly " & quoted form of dbPath & " < " & quoted form of sqlFile
@@ -177,16 +158,13 @@ on error errMsg number errNum
 " & errMsg as critical
 	return
 end try
-
 set chartJSON to my readText(chartDataPath)
 set stackedJSON to my readText(stackedDataPath)
 set allTimeMessagesJSON to my readText(allTimeMessagesPath)
 set allTimeDaysJSON to my readText(allTimeDaysPath)
 my writeText(my makeDashboardHTML(chartJSON, stackedJSON, allTimeMessagesJSON, allTimeDaysJSON, contactMapJSON, topN, startYear, endYear), dashboardPath)
 do shell script "/usr/bin/open " & quoted form of dashboardPath
-
 display dialog "Done. Created the CSV exports and opened the complete contact-analysis dashboard in your browser." buttons {"OK"} default button "OK"
-
 on contactNameMapJSON()
 	set mapEntries to {}
 	tell application "Contacts"
@@ -208,7 +186,6 @@ on contactNameMapJSON()
 	set AppleScript's text item delimiters to ""
 	return mapJSON
 end contactNameMapJSON
-
 on normalizedContactID(rawID)
 	if rawID contains "@" then return my lowerText(rawID)
 	set allowedCharacters to "0123456789"
@@ -218,7 +195,6 @@ on normalizedContactID(rawID)
 	end repeat
 	return normalizedID
 end normalizedContactID
-
 on lowerText(sourceText)
 	set uppercaseLetters to "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	set lowercaseLetters to "abcdefghijklmnopqrstuvwxyz"
@@ -233,7 +209,6 @@ on lowerText(sourceText)
 	end repeat
 	return resultText
 end lowerText
-
 on jsonQuote(sourceText)
 	set escapedText to my replaceText(sourceText, "\\", "\\\\")
 	set escapedText to my replaceText(escapedText, "\"", "\\\"")
@@ -241,7 +216,6 @@ on jsonQuote(sourceText)
 	set escapedText to my replaceText(escapedText, return, "\\n")
 	return "\"" & escapedText & "\""
 end jsonQuote
-
 on replaceText(sourceText, findText, replacementText)
 	set AppleScript's text item delimiters to findText
 	set textItems to text items of sourceText
@@ -250,7 +224,6 @@ on replaceText(sourceText, findText, replacementText)
 	set AppleScript's text item delimiters to ""
 	return resultText
 end replaceText
-
 on readText(filePath)
 	set fileRef to open for access (POSIX file filePath)
 	try
@@ -264,56 +237,14 @@ on readText(filePath)
 		error errMsg number errNum
 	end try
 end readText
-
 on makeDashboardHTML(lineJSON, stackedJSON, messageJSON, daysJSON, contactMapJSON, topN, startYear, endYear)
 	return "<!doctype html><meta charset=\"utf-8\"><title>iMessage contact analysis</title>" & linefeed & Â
-		"<style>body{margin:28px;max-width:1400px;font:14px -apple-system,BlinkMacSystemFont,sans-serif;color:#172033;background:#fafafa}h1{font-size:26px}h2{margin:38px 0 12px;font-size:19px}.sub{color:#586174}.tables{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}.panel{background:#fff;border:1px solid #d8dee8;border-radius:10px;padding:16px}table{width:100%;border-collapse:collapse}td,th{padding:7px;border-bottom:1px solid #e5e9f0;text-align:left}th:last-child,td:last-child{text-align:right}#charts{display:grid;gap:30px}.chart{overflow-x:auto;background:#fff;border:1px solid #d8dee8;border-radius:10px;padding:12px}.chart h3{margin:0 0 8px;font-size:16px}svg{min-width:900px}.grid{stroke:#d8dee8}.axis{fill:#586174;font-size:11px}.legend{font-size:12px}.legend-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 18px;padding:12px 6px 2px}.legend-item{display:flex;gap:7px;min-width:0;align-items:flex-start}.swatch{width:16px;height:3px;margin-top:7px;flex:0 0 auto}.legend-copy{min-width:0;overflow-wrap:anywhere;line-height:1.35}.legend-detail{color:#586174}.line{fill:none;stroke-width:2.5}.dot{stroke:#fff;stroke-width:1.5}.area{stroke:#fff;stroke-width:.7}</style>" & linefeed & Â
+		"<style>body{margin:28px;max-width:1400px;font:14px -apple-system,BlinkMacSystemFont,sans-serif;color:#172033;background:#fafafa}h1{font-size:26px}h2{margin:38px 0 12px;font-size:19px}.sub{color:#586174}.tables{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}.panel{background:#fff;border:1px solid #d8dee8;border-radius:10px;padding:16px}table{width:100%;border-collapse:collapse}td,th{padding:7px;border-bottom:1px solid #e5e9f0;text-align:left}th:last-child,td:last-child{text-align:right}#charts{display:grid;gap:30px}.chart{overflow-x:auto;background:#fff;border:1px solid #d8dee8;border-radius:10px;padding:12px}.chart h3{margin:0 0 8px;font-size:16px}svg{min-width:900px}.grid{stroke:#d8dee8}.axis{fill:#586174;font-size:11px}.legend{font-size:12px}.legend-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 18px;padding:12px 6px 2px}.legend-item{display:flex;gap:7px;min-width:0;align-items:flex-start}.swatch{width:16px;height:3px;margin-top:7px;flex:0 0 auto}.swatch-pair{display:flex;gap:3px;flex:0 0 auto;margin-top:7px}.legend-copy{min-width:0;overflow-wrap:anywhere;line-height:1.35}.legend-detail{color:#586174}.line{fill:none;stroke-width:2.5}.dot{stroke:#fff;stroke-width:1.5}.area{stroke:#fff;stroke-width:.7}</style>" & linefeed & Â
 		"<h1>iMessage contact analysis</h1><p class=\"sub\">" & startYear & "Ð" & endYear & " á top " & topN & " contacts</p><div class=\"tables\"><section class=\"panel\"><h2>Most messages</h2><div id=\"messages\"></div></section><section class=\"panel\"><h2>Most days texted</h2><div id=\"days\"></div></section></div><div id=\"charts\"></div>" & linefeed & Â
 		"<script>const lineRaw=" & lineJSON & ",stackRaw=" & stackedJSON & ",msgRaw=" & messageJSON & ",daysRaw=" & daysJSON & ",names=" & contactMapJSON & ",N=" & topN & ";const norm=v=>v.includes('@')?v.toLowerCase():v.replace(/[^0-9]/g,''),name=v=>names[norm(v)]||v,lines=lineRaw.map(r=>({...r,contact:name(r.contact)})),stack=stackRaw.map(r=>({...r,contact:name(r.contact)})),msgs=msgRaw.map(r=>({...r,contact:name(r.contact)})),days=daysRaw.map(r=>({...r,contact:name(r.contact)}));const esc=v=>String(v).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));const table=(rows,key,label)=>`<table><thead><tr><th>Contact</th><th>${label}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.contact)}</td><td>${Number(r[key]).toLocaleString()}</td></tr>`).join('')}</tbody></table>`;document.getElementById('messages').innerHTML=table(msgs,'message_count','Messages');document.getElementById('days').innerHTML=table(days,'day_count','Days');" & linefeed & Â
-		"const colors=i=>`hsl(${(i*137.508)%360} 68% 42%)`,ord=n=>n+(n%10===1&&n%100!==11?'st':n%10===2&&n%100!==12?'nd':n%10===3&&n%100!==13?'rd':'th'),detail=(c,m)=>{const a=lines.filter(r=>r.contact===c);if(m==='volume'){const t={};a.forEach(r=>t[r.year]=(t[r.year]||0)+r.message_count);return Object.entries(t).map(([y,n])=>`${y} Ð ${n.toLocaleString()}`).join('; ')}return a.map(r=>`${r.season} Ð ${ord(r.rank)}`).join('; ')},legend=(cs,m)=>`<div class='legend-list'>${cs.map((c,k)=>`<div class='legend-item'><span class='swatch' style='background:${colors(k)}'></span><div class='legend-copy'><strong>${esc(c)}</strong><br><span class='legend-detail'>${detail(c,m)}</span></div></div>`).join('')}</div>`,mount=(title,draw)=>{const d=document.createElement('section');d.className='chart';d.innerHTML=`<h3>${title}</h3>`;const target=document.createElement('div');d.append(target);document.getElementById('charts').append(d);draw(target)};function lineChart(mode){const contacts=[...new Set(lines.map(r=>r.contact))],seasons=[...new Set(lines.map(r=>r.season))],W=Math.max(980,seasons.length*70),H=510,L=62,R=24,T=32,B=86,x=i=>L+i*(W-L-R)/Math.max(seasons.length-1,1),max=Math.max(...lines.map(r=>r.message_count),1),y=v=>mode==='rank'?T+(H-T-B)*(v-1)/Math.max(N-1,1):T+(H-T-B)*(1-v/max);let s=`<svg viewBox='0 0 ${W} ${H}'><text id='tip-${mode}' class='axis' x='${W-R}' y='18' text-anchor='end'>Hover a line</text>`;if(mode==='rank'){for(let v=1;v<=N;v++)s+=`<line class='grid' x1='${L}' x2='${W-R}' y1='${y(v)}' y2='${y(v)}'/><text class='axis' x='${L-8}' y='${y(v)+4}' text-anchor='end'>${v}</text>`}else{for(let i=0;i<=5;i++){let v=Math.round(max*i/5);s+=`<line class='grid' x1='${L}' x2='${W-R}' y1='${y(v)}' y2='${y(v)}'/><text class='axis' x='${L-8}' y='${y(v)+4}' text-anchor='end'>${v}</text>`}}seasons.forEach((q,i)=>s+=`<text class='axis' x='${x(i)}' y='${H-B+18}' text-anchor='end' transform='rotate(-45 ${x(i)} ${H-B+18})'>${q}</text>`);contacts.forEach((c,k)=>{const a=seasons.map(q=>lines.find(r=>r.season===q&&r.contact===c)),p=a.map((r,i)=>r?`${a[i-1]?'L':'M'}${x(i)},${y(mode==='rank'?r.rank:r.message_count)}`:'').join(' '),col=colors(k);if(p)s+=`<path stroke='transparent' stroke-width='18' fill='none' d='${p}' data-c='${k}'/><path class='line' stroke='${col}' d='${p}' data-c='${k}'/>`;a.forEach((r,i)=>r&&(s+=`<circle class='dot' fill='${col}' cx='${x(i)}' cy='${y(mode==='rank'?r.rank:r.message_count)}' r='4' data-c='${k}'/>`))});return s+'</svg>'+legend(contacts,mode)}mount('Top contacts by half-year - rank',d=>{d.innerHTML=lineChart('rank');wire(d,'rank')});mount('Top contacts by half-year - message volume',d=>{d.innerHTML=lineChart('volume');wire(d,'volume')});function wire(d,mode){const tip=d.querySelector('#tip-'+mode),cs=[...new Set(lines.map(r=>r.contact))];d.querySelectorAll('[data-c]').forEach(e=>{e.onmouseenter=()=>tip.textContent=cs[+e.dataset.c];e.onmouseleave=()=>tip.textContent='Hover a line'})}" & linefeed & Â
-		"function stackedChart(){const contacts=[...new Set(stack.map(r=>r.contact))],seasons=[...new Set(stack.map(r=>r.season))],lr=Math.ceil(contacts.length/3),W=Math.max(980,seasons.length*70),H=520+lr*22,L=62,R=24,T=32,B=104+lr*22,x=i=>L+i*(W-L-R)/Math.max(seasons.length-1,1),tot=seasons.map(q=>stack.filter(r=>r.season===q).reduce((s,r)=>s+r.message_count,0)),max=Math.max(...tot,1),y=v=>T+(H-T-B)*(1-v/max);let s=`<svg viewBox='0 0 ${W} ${H}'>`;for(let i=0;i<=5;i++){let v=Math.round(max*i/5);s+=`<line class='grid' x1='${L}' x2='${W-R}' y1='${y(v)}' y2='${y(v)}'/><text class='axis' x='${L-8}' y='${y(v)+4}' text-anchor='end'>${v}</text>`}seasons.forEach((q,i)=>s+=`<text class='axis' x='${x(i)}' y='${H-B+18}' text-anchor='end' transform='rotate(-45 ${x(i)} ${H-B+18})'>${q}</text>`);let base=Array(seasons.length).fill(0);contacts.forEach((c,k)=>[['sent_count',colors(k)],['received_count',`hsl(${(k*137.508)%360} 75% 76%)`]].forEach(([f,col])=>{let vs=seasons.map(q=>stack.find(r=>r.season===q&&r.contact===c)[f]),top=vs.map((v,i)=>base[i]+v);s+=`<path class='area' fill='${col}' d='M ${top.map((v,i)=>x(i)+','+y(v)).join(' L ')} L ${base.map((v,i)=>x(i)+','+y(v)).reverse().join(' L ')} Z'/>`;base=top}));contacts.forEach((c,k)=>{let lx=L+(k%3)*((W-L-R)/3),ly=H-22-lr*22+Math.floor(k/3)*22;s+=`<rect x='${lx}' y='${ly-10}' width='12' height='12' fill='${colors(k)}'/><text class='legend' x='${lx+16}' y='${ly}'>${esc(c)} sent á ${detail(c,'volume')}</text><rect x='${lx+250}' y='${ly-10}' width='12' height='12' fill='hsl(${(k*137.508)%360} 75% 76%)'/><text class='legend' x='${lx+266}' y='${ly}'>received</text>`});return s+'</svg>'}mount('Top contacts by half-year Ñ sent and received',d=>d.innerHTML=stackedChart());</script>"
+		"const colors=i=>`hsl(${(i*137.508)%360} 68% 42%)`,ord=n=>n+(n%10===1&&n%100!==11?'st':n%10===2&&n%100!==12?'nd':n%10===3&&n%100!==13?'rd':'th'),detail=(c,m)=>{const a=lines.filter(r=>r.contact===c);if(m==='volume'){const t={};a.forEach(r=>t[r.year]=(t[r.year]||0)+r.message_count);return Object.entries(t).map(([y,n])=>`${y} Ð ${n.toLocaleString()}`).join('; ')}return a.map(r=>`${r.season} Ð ${ord(r.rank)}`).join('; ')},legend=(cs,m)=>`<div class='legend-list'>${cs.map((c,k)=>`<div class='legend-item'><span class='swatch' style='background:${colors(k)}'></span><div class='legend-copy'><strong>${esc(c)}</strong><br><span class='legend-detail'>${detail(c,m)}</span></div></div>`).join('')}</div>`,stackedLegend=cs=>`<div class='legend-list'>${cs.map((c,k)=>`<div class='legend-item'><span class='swatch-pair'><span class='swatch' style='background:${colors(k)}'></span><span class='swatch' style='background:hsl(${(k*137.508)%360} 75% 76%)'></span></span><div class='legend-copy'><strong>${esc(c)}</strong> <span class='legend-detail'>(dark = sent, light = received)</span><br><span class='legend-detail'>${detail(c,'volume')}</span></div></div>`).join('')}</div>`,mount=(title,draw)=>{const d=document.createElement('section');d.className='chart';d.innerHTML=`<h3>${title}</h3>`;const target=document.createElement('div');d.append(target);document.getElementById('charts').append(d);draw(target)};function lineChart(mode){const contacts=[...new Set(lines.map(r=>r.contact))],seasons=[...new Set(lines.map(r=>r.season))],W=Math.max(980,seasons.length*70),H=510,L=62,R=24,T=32,B=86,x=i=>L+i*(W-L-R)/Math.max(seasons.length-1,1),max=Math.max(...lines.map(r=>r.message_count),1),y=v=>mode==='rank'?T+(H-T-B)*(v-1)/Math.max(N-1,1):T+(H-T-B)*(1-v/max);let s=`<svg viewBox='0 0 ${W} ${H}'><text id='tip-${mode}' class='axis' x='${W-R}' y='18' text-anchor='end'>Hover a line</text>`;if(mode==='rank'){for(let v=1;v<=N;v++)s+=`<line class='grid' x1='${L}' x2='${W-R}' y1='${y(v)}' y2='${y(v)}'/><text class='axis' x='${L-8}' y='${y(v)+4}' text-anchor='end'>${v}</text>`}else{for(let i=0;i<=5;i++){let v=Math.round(max*i/5);s+=`<line class='grid' x1='${L}' x2='${W-R}' y1='${y(v)}' y2='${y(v)}'/><text class='axis' x='${L-8}' y='${y(v)+4}' text-anchor='end'>${v}</text>`}}seasons.forEach((q,i)=>s+=`<text class='axis' x='${x(i)}' y='${H-B+18}' text-anchor='end' transform='rotate(-45 ${x(i)} ${H-B+18})'>${q}</text>`);contacts.forEach((c,k)=>{const a=seasons.map(q=>lines.find(r=>r.season===q&&r.contact===c)),p=a.map((r,i)=>r?`${a[i-1]?'L':'M'}${x(i)},${y(mode==='rank'?r.rank:r.message_count)}`:'').join(' '),col=colors(k);if(p)s+=`<path stroke='transparent' stroke-width='18' fill='none' d='${p}' data-c='${k}'/><path class='line' stroke='${col}' d='${p}' data-c='${k}'/>`;a.forEach((r,i)=>r&&(s+=`<circle class='dot' fill='${col}' cx='${x(i)}' cy='${y(mode==='rank'?r.rank:r.message_count)}' r='4' data-c='${k}'/>`))});return s+'</svg>'+legend(contacts,mode)}mount('Top contacts by half-year - rank',d=>{d.innerHTML=lineChart('rank');wire(d,'rank')});mount('Top contacts by half-year - message volume',d=>{d.innerHTML=lineChart('volume');wire(d,'volume')});function wire(d,mode){const tip=d.querySelector('#tip-'+mode),cs=[...new Set(lines.map(r=>r.contact))];d.querySelectorAll('[data-c]').forEach(e=>{e.onmouseenter=()=>tip.textContent=cs[+e.dataset.c];e.onmouseleave=()=>tip.textContent='Hover a line'})}" & linefeed & Â
+		"function stackedChart(){const contacts=[...new Set(stack.map(r=>r.contact))],seasons=[...new Set(stack.map(r=>r.season))],W=Math.max(980,seasons.length*70),H=510,L=62,R=24,T=32,B=86,x=i=>L+i*(W-L-R)/Math.max(seasons.length-1,1),tot=seasons.map(q=>stack.filter(r=>r.season===q).reduce((s,r)=>s+r.message_count,0)),max=Math.max(...tot,1),y=v=>T+(H-T-B)*(1-v/max);let s=`<svg viewBox='0 0 ${W} ${H}'>`;for(let i=0;i<=5;i++){let v=Math.round(max*i/5);s+=`<line class='grid' x1='${L}' x2='${W-R}' y1='${y(v)}' y2='${y(v)}'/><text class='axis' x='${L-8}' y='${y(v)+4}' text-anchor='end'>${v}</text>`}seasons.forEach((q,i)=>s+=`<text class='axis' x='${x(i)}' y='${H-B+18}' text-anchor='end' transform='rotate(-45 ${x(i)} ${H-B+18})'>${q}</text>`);let base=Array(seasons.length).fill(0);contacts.forEach((c,k)=>[['sent_count',colors(k)],['received_count',`hsl(${(k*137.508)%360} 75% 76%)`]].forEach(([f,col])=>{let vs=seasons.map(q=>stack.find(r=>r.season===q&&r.contact===c)[f]),top=vs.map((v,i)=>base[i]+v);s+=`<path class='area' fill='${col}' d='M ${top.map((v,i)=>x(i)+','+y(v)).join(' L ')} L ${base.map((v,i)=>x(i)+','+y(v)).reverse().join(' L ')} Z'/>`;base=top}));return s+'</svg>'+stackedLegend(contacts)}mount('Top contacts by half-year Ñ sent and received',d=>d.innerHTML=stackedChart());</script>"
 end makeDashboardHTML
-
-on makeDynamicLineChartHTML(chartJSON, contactMapJSON, chartMode, topN)
-	return "<!doctype html><meta charset=\"utf-8\"><title>iMessage contacts by half-year</title>" & linefeed & Â
-		"<style>body{margin:24px;font:14px -apple-system,BlinkMacSystemFont,sans-serif;color:#172033;background:#fafafa}h1{font-size:20px;margin:0 0 16px}#chart{width:100%;overflow-x:auto}svg{min-width:900px;background:#fff;border:1px solid #d8dee8;border-radius:8px}.grid{stroke:#d8dee8}.axis{fill:#586174;font-size:11px}.legend{font-size:12px}.line{fill:none;stroke-width:2.5}.dot{stroke:#fff;stroke-width:1.5}</style>" & linefeed & Â
-		"<h1>Top " & topN & " iMessage contacts by half-year Ñ " & chartMode & "</h1><div id=\"chart\"></div><script>" & linefeed & Â
-		"const rawRows=" & chartJSON & ";const nameMap=" & contactMapJSON & ";const mode='" & chartMode & "',topN=" & topN & ";const normalize=v=>v.includes('@')?v.toLowerCase():v.replace(/[^0-9]/g,'');const rows=rawRows.map(r=>({...r,contact:nameMap[normalize(r.contact)]||r.contact}));const contacts=[...new Set(rows.map(r=>r.contact))],seasons=[...new Set(rows.map(r=>r.season))],legendRows=Math.ceil(contacts.length/4),W=Math.max(980,seasons.length*70),H=524+legendRows*20,L=62,R=24,T=32,B=100+legendRows*20,x=i=>L+i*(W-L-R)/Math.max(seasons.length-1,1),max=Math.max(...rows.map(r=>r.message_count),1),y=v=>mode==='rank'?T+(H-T-B)*(v-1)/Math.max(topN-1,1):T+(H-T-B)*(1-v/max);let s=`<svg viewBox='0 0 ${W} ${H}' role='img' aria-label='Top contacts by half-year'><text id='tip' class='axis' x='${W-R}' y='18' text-anchor='end'>Hover a line</text>`;" & linefeed & Â
-		"if(mode==='rank'){for(let v=1;v<=topN;v++){const py=y(v);s+=`<line class='grid' x1='${L}' x2='${W-R}' y1='${py}' y2='${py}'/><text class='axis' x='${L-8}' y='${py+4}' text-anchor='end'>${v}</text>`}}else{for(let i=0;i<=5;i++){const v=Math.round(max*i/5),py=y(v);s+=`<line class='grid' x1='${L}' x2='${W-R}' y1='${py}' y2='${py}'/><text class='axis' x='${L-8}' y='${py+4}' text-anchor='end'>${v}</text>`}}seasons.forEach((q,i)=>s+=`<text class='axis' x='${x(i)}' y='${H-B+18}' text-anchor='end' transform='rotate(-45 ${x(i)} ${H-B+18})'>${q}</text>`);" & linefeed & Â
-		"contacts.forEach((c,k)=>{const color=`hsl(${(k*137.508)%360} 68% 42%)`,a=seasons.map(q=>rows.find(r=>r.season===q&&r.contact===c)),path=a.map((r,i)=>r?`${a[i-1]?'L':'M'}${x(i)},${y(mode==='rank'?r.rank:r.message_count)}`:'').join(' ');if(path)s+=`<path stroke='transparent' stroke-width='16' fill='none' d='${path}' data-index='${k}'/><path class='line' stroke='${color}' d='${path}' data-index='${k}'/>`;a.forEach((r,i)=>{if(r){const value=mode==='rank'?'#'+r.rank:r.message_count;s+=`<circle class='dot' fill='${color}' cx='${x(i)}' cy='${y(mode==='rank'?r.rank:r.message_count)}' r='5' data-index='${k}'><title>${c}: ${value}${mode==='rank'?' rank':' messages'} in ${r.season}</title></circle>`}});const lx=L+(k%4)*((W-L-R)/4),ly=H-22-legendRows*20+Math.floor(k/4)*20;s+=`<line x1='${lx}' x2='${lx+16}' y1='${ly-4}' y2='${ly-4}' stroke='${color}' stroke-width='3'/><text class='legend' x='${lx+21}' y='${ly}'>${c}</text>`});s+=`<text class='axis' x='${L}' y='18'>${mode==='rank'?'Rank (1 is most messaged)':'Messages'}</text></svg>`;document.getElementById('chart').innerHTML=s;const tip=document.getElementById('tip');document.querySelectorAll('[data-index]').forEach(el=>{el.addEventListener('mouseenter',()=>tip.textContent=contacts[+el.dataset.index]);el.addEventListener('mouseleave',()=>tip.textContent='Hover a line')});</script>"
-end makeDynamicLineChartHTML
-
-on makeChartHTML(chartJSON, contactMapJSON)
-	return "<!doctype html><meta charset=\"utf-8\"><title>iMessage top contacts by half-year: message volume</title>" & linefeed & Â
-		"<style>body{margin:24px;font:14px -apple-system,BlinkMacSystemFont,sans-serif;color:#172033;background:#fafafa}h1{font-size:20px;margin:0 0 16px}#chart{width:100%;overflow-x:auto}svg{min-width:900px;background:#fff;border:1px solid #d8dee8;border-radius:8px}.grid{stroke:#d8dee8}.axis{fill:#586174;font-size:11px}.legend{font-size:12px}.line{fill:none;stroke-width:2.25}.dot{stroke:#fff;stroke-width:1.5}</style>" & linefeed & Â
-		"<h1>Top 10 iMessage contacts by half-year Ñ message volume</h1><div id=\"chart\"></div><script>" & linefeed & Â
-		"const rawRows=" & chartJSON & ";const nameMap=" & contactMapJSON & ";const normalize=v=>v.includes('@')?v.toLowerCase():v.replace(/[^0-9]/g,'');const rows=rawRows.map(r=>({...r,contact:nameMap[normalize(r.contact)]||r.contact}));const colors=['#2563eb','#dc2626','#16a34a','#9333ea','#ea580c','#0891b2','#be123c','#4f46e5','#65a30d','#c2410c'];" & linefeed & Â
-		"const contacts=[...new Set(rows.map(r=>r.contact))];const seasons=[...new Set(rows.map(r=>r.season))];const W=Math.max(980,seasons.length*62),H=560,L=62,R=24,T=32,B=92,max=Math.max(...rows.map(r=>r.message_count),1),x=i=>L+i*(W-L-R)/Math.max(seasons.length-1,1),y=v=>T+(H-T-B)*(1-v/max);let s=`<svg viewBox='0 0 ${W} ${H}' role='img' aria-label='Half-year message counts for your ten most messaged contacts'>`;" & linefeed & Â
-		"for(let i=0;i<=5;i++){let v=Math.round(max*i/5),py=y(v);s+=`<line class='grid' x1='${L}' x2='${W-R}' y1='${py}' y2='${py}'/><text class='axis' x='${L-8}' y='${py+4}' text-anchor='end'>${v}</text>`}seasons.forEach((q,i)=>{if(i%Math.ceil(seasons.length/12)===0||i===seasons.length-1)s+=`<text class='axis' x='${x(i)}' y='${H-B+18}' text-anchor='end' transform='rotate(-45 ${x(i)} ${H-B+18})'>${q}</text>`});" & linefeed & Â
-		"contacts.forEach((c,k)=>{const a=seasons.map(q=>rows.find(r=>r.season===q&&r.contact===c));s+=`<path class='line' stroke='${colors[k%colors.length]}' d='${a.map((r,i)=>(i?'L':'M')+x(i)+','+y(r.message_count)).join(' ')}'/>`;a.forEach((r,i)=>s+=`<circle class='dot' fill='${colors[k%colors.length]}' cx='${x(i)}' cy='${y(r.message_count)}' r='3'><title>${c}: ${r.message_count} messages in ${r.season}</title></circle>`);const lx=L+(k%5)*((W-L-R)/5),ly=H-30+Math.floor(k/5)*22;s+=`<line x1='${lx}' x2='${lx+16}' y1='${ly-4}' y2='${ly-4}' stroke='${colors[k%colors.length]}' stroke-width='3'/><text class='legend' x='${lx+21}' y='${ly}'>${c}</text>`});s+=`<text class='axis' x='${L}' y='18'>Messages per half-year</text></svg>`;document.getElementById('chart').innerHTML=s;</script>"
-end makeChartHTML
-
-on makeRankChartHTML(chartJSON, contactMapJSON)
-	return "<!doctype html><meta charset=\"utf-8\"><title>iMessage top contacts by half-year: rank</title>" & linefeed & Â
-		"<style>body{margin:24px;font:14px -apple-system,BlinkMacSystemFont,sans-serif;color:#172033;background:#fafafa}h1{font-size:20px;margin:0 0 16px}#chart{width:100%;overflow-x:auto}svg{min-width:900px;background:#fff;border:1px solid #d8dee8;border-radius:8px}.grid{stroke:#d8dee8}.axis{fill:#586174;font-size:11px}.legend{font-size:12px}.line{fill:none;stroke-width:2.25}.dot{stroke:#fff;stroke-width:1.5}</style>" & linefeed & Â
-		"<h1>Top 10 iMessage contacts by half-year Ñ rank</h1><div id=\"chart\"></div><script>" & linefeed & Â
-		"const rawRows=" & chartJSON & ";const nameMap=" & contactMapJSON & ";const normalize=v=>v.includes('@')?v.toLowerCase():v.replace(/[^0-9]/g,'');const rows=rawRows.map(r=>({...r,contact:nameMap[normalize(r.contact)]||r.contact}));const colors=['#2563eb','#dc2626','#16a34a','#9333ea','#ea580c','#0891b2','#be123c','#4f46e5','#65a30d','#c2410c'];" & linefeed & Â
-		"const contacts=[...new Set(rows.map(r=>r.contact))],seasons=[...new Set(rows.map(r=>r.season))];seasons.forEach(q=>rows.filter(r=>r.season===q).sort((a,b)=>b.message_count-a.message_count||a.contact.localeCompare(b.contact)).forEach((r,i)=>r.rank=i+1));const W=Math.max(980,seasons.length*62),H=560,L=62,R=24,T=32,B=92,x=i=>L+i*(W-L-R)/Math.max(seasons.length-1,1),y=r=>T+(H-T-B)*(r-1)/9;let s=`<svg viewBox='0 0 ${W} ${H}' role='img' aria-label='Half-year rank from one to ten for your ten most messaged contacts'>`;" & linefeed & Â
-		"for(let r=1;r<=10;r++){let py=y(r);s+=`<line class='grid' x1='${L}' x2='${W-R}' y1='${py}' y2='${py}'/><text class='axis' x='${L-8}' y='${py+4}' text-anchor='end'>${r}</text>`}seasons.forEach((q,i)=>s+=`<text class='axis' x='${x(i)}' y='${H-B+18}' text-anchor='end' transform='rotate(-45 ${x(i)} ${H-B+18})'>${q}</text>`);" & linefeed & Â
-		"contacts.forEach((c,k)=>{const a=seasons.map(q=>rows.find(r=>r.season===q&&r.contact===c));s+=`<path class='line' stroke='${colors[k%colors.length]}' d='${a.map((r,i)=>(i?'L':'M')+x(i)+','+y(r.rank)).join(' ')}'/>`;a.forEach((r,i)=>s+=`<circle class='dot' fill='${colors[k%colors.length]}' cx='${x(i)}' cy='${y(r.rank)}' r='3'><title>#${r.rank}: ${c} Ñ ${r.message_count} messages in ${r.season}</title></circle>`);const lx=L+(k%5)*((W-L-R)/5),ly=H-30+Math.floor(k/5)*22;s+=`<line x1='${lx}' x2='${lx+16}' y1='${ly-4}' y2='${ly-4}' stroke='${colors[k%colors.length]}' stroke-width='3'/><text class='legend' x='${lx+21}' y='${ly}'>${c}</text>`});s+=`<text class='axis' x='${L}' y='18'>Rank within this top-ten cohort (1 is most messaged)</text></svg>`;document.getElementById('chart').innerHTML=s;</script>"
-end makeRankChartHTML
-
-on makeStackedChartHTML(chartJSON, contactMapJSON, topN)
-	return "<!doctype html><meta charset=\"utf-8\"><title>iMessage top contacts by half-year: sent and received</title>" & linefeed & Â
-		"<style>body{margin:24px;font:14px -apple-system,BlinkMacSystemFont,sans-serif;color:#172033;background:#fafafa}h1{font-size:20px;margin:0 0 16px}#chart{width:100%;overflow-x:auto}svg{min-width:900px;background:#fff;border:1px solid #d8dee8;border-radius:8px}.grid{stroke:#d8dee8}.axis{fill:#586174;font-size:11px}.legend{font-size:12px}.area{stroke:#fff;stroke-width:.7}</style>" & linefeed & Â
-		"<h1>Top " & topN & " iMessage contacts by half-year Ñ sent and received</h1><div id=\"chart\"></div><script>" & linefeed & Â
-		"const rawRows=" & chartJSON & ";const nameMap=" & contactMapJSON & ";const normalize=v=>v.includes('@')?v.toLowerCase():v.replace(/[^0-9]/g,'');const rows=rawRows.map(r=>({...r,contact:nameMap[normalize(r.contact)]||r.contact}));" & linefeed & Â
-		"const contacts=[...new Set(rows.map(r=>r.contact))],shades=contacts.map((_,i)=>[`hsl(${(i*137.508)%360} 70% 40%)`,`hsl(${(i*137.508)%360} 75% 76%)`]),seasons=[...new Set(rows.map(r=>r.season))],W=Math.max(980,seasons.length*62),H=590,L=62,R=24,T=32,B=122,x=i=>L+i*(W-L-R)/Math.max(seasons.length-1,1),totals=seasons.map(q=>rows.filter(r=>r.season===q).reduce((n,r)=>n+r.message_count,0)),max=Math.max(...totals,1),y=v=>T+(H-T-B)*(1-v/max);let s=`<svg viewBox='0 0 ${W} ${H}' role='img' aria-label='Stacked half-year sent and received message counts for your top contacts'>`;" & linefeed & Â
-		"for(let i=0;i<=5;i++){let v=Math.round(max*i/5),py=y(v);s+=`<line class='grid' x1='${L}' x2='${W-R}' y1='${py}' y2='${py}'/><text class='axis' x='${L-8}' y='${py+4}' text-anchor='end'>${v}</text>`}seasons.forEach((q,i)=>s+=`<text class='axis' x='${x(i)}' y='${H-B+18}' text-anchor='end' transform='rotate(-45 ${x(i)} ${H-B+18})'>${q}</text>`);" & linefeed & Â
-		"let base=Array(seasons.length).fill(0);contacts.forEach((c,k)=>[['sent_count','sent',shades[k][0]],['received_count','received',shades[k][1]]].forEach(([field,label,color])=>{const vals=seasons.map(q=>rows.find(r=>r.season===q&&r.contact===c)[field]),top=vals.map((v,i)=>base[i]+v),path=`M ${top.map((v,i)=>x(i)+','+y(v)).join(' L ')} L ${base.map((v,i)=>x(i)+','+y(v)).reverse().join(' L ')} Z`;s+=`<path class='area' fill='${color}' d='${path}'><title>${c} Ñ ${label}</title></path>`;base=top}));" & linefeed & Â
-		"contacts.forEach((c,k)=>{const lx=L+(k%3)*((W-L-R)/3),ly=H-53+Math.floor(k/3)*22;s+=`<rect x='${lx}' y='${ly-10}' width='12' height='12' fill='${shades[k][0]}'/><text class='legend' x='${lx+16}' y='${ly}'>${c} sent</text><rect x='${lx+230}' y='${ly-10}' width='12' height='12' fill='${shades[k][1]}'/><text class='legend' x='${lx+246}' y='${ly}'>received</text>`});s+=`<text class='axis' x='${L}' y='18'>Messages per half-year Ñ dark = sent, light = received</text></svg>`;document.getElementById('chart').innerHTML=s;</script>"
-end makeStackedChartHTML
-
 on sqlQuote(theText)
 	set AppleScript's text item delimiters to "'"
 	set textItems to text items of theText
@@ -322,7 +253,6 @@ on sqlQuote(theText)
 	set AppleScript's text item delimiters to ""
 	return "'" & escapedText & "'"
 end sqlQuote
-
 on writeText(theText, filePath)
 	set fileRef to open for access (POSIX file filePath) with write permission
 	try
